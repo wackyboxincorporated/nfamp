@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>cracker 2 edition	</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/src/style.css">
+</head>
+
+<body>
+    <div id="app">
+        <header>
+            <div class="title-area">
+                <h1>application</h1>
+                <span id="module-name">not loaded</span>
+            </div>
+            <div id="time-val" style="font-size: 14px; color: var(--accent)">00:00</div>
+        </header>
+
+        <div class="main-layout">
+            <div class="tracker-panel">
+                <div id="pattern-view"></div>
+                <div id="dropzone">
+                    <div class="drop-border">drop moduel</div>
+                </div>
+            </div>
+
+            <div class="sidebar">
+                <div class="box info-panel">
+                    <div class="info-grid">
+                        <div class="label">POS</div>
+                        <div id="pos-val" class="value">00</div>
+                        <div class="label">ROW</div>
+                        <div id="row-val" class="value">00</div>
+                        <div class="label">BPM</div>
+                        <div id="bpm-val" class="value">125</div>
+                        <div class="label">SPD</div>
+                        <div id="spd-val" class="value">06</div>
+                    </div>
+                </div>
+
+                <div class="box controls-panel">
+                    <div class="button-grid">
+                        <button id="playBtn">Play</button>
+                        <button id="pauseBtn">Pause</button>
+                        <button id="stopBtn">Stop</button>
+                        <button id="editBtn">Edit</button>
+                        <button id="prevBtn">&laquo; POS</button>
+                        <button id="nextBtn">POS &raquo;</button>
+                    </div>
+                </div>
+
+                <div class="box meters-panel">
+                    <div class="label">Channels</div>
+                    <div class="channel-meters" id="meters"></div>
+                </div>
+
+                <div class="box instruments-panel"
+                    style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
+                    <div class="label">Instruments</div>
+                    <div class="instrument-list" id="inst-list"></div>
+                </div>
+            </div>
+
+            <div class="visualizer-area">
+                <canvas id="main-scope"></canvas>
+            </div>
+        </div>
+    </div>
+    <input type="file" id="fileInput" accept=".mod, .xm, .s3m" style="display:none" />
+    <script type="module" src="/src/main.js"></script>
+</body>
+
+</html>
