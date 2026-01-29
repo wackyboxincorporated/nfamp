@@ -1,4 +1,4 @@
-// i put this in here because like just in case you hate yourself
+// I hate batncies
 const PROCESSOR_CODE = `
 class ModProcessor extends AudioWorkletProcessor {
     constructor() {
@@ -12,8 +12,7 @@ class ModProcessor extends AudioWorkletProcessor {
                 const numChannels = data.numChannels || 4;
                 const mode = data.type || 'MOD';
                 
-                // Adjust gain headroom based on format
-                // S3M/XM often need more headroom due to global volume scaling
+                // Adjormat
                 let formatMult = 1.0;
                 if (mode === 'S3M') formatMult = 0.5; 
                 else if (mode === 'XM') formatMult = 0.8;
@@ -106,7 +105,7 @@ class ModProcessor extends AudioWorkletProcessor {
                 mixR += val * panR;
 
                 // Advance Position
-                if (ch.loopType === 2) { // PingPong Movement
+                if (ch.loopType === 2) { // PingPment
                     ch.position += ch.step * ch.pingPongDir;
                     if (ch.pingPongDir > 0) {
                         if (ch.position >= ch.loopStart + ch.loopLength) {
@@ -147,7 +146,7 @@ export class ModPlayer {
     constructor() {
         this.ctx = null;
         this.workletNode = null;
-        this.analyser = null; // its not a very good visualiser but thats because im lazy and i stole the implementation 
+        this.analyser = null;
         this.module = null;
         this.playing = false;
         this.paused = false;
@@ -169,13 +168,11 @@ export class ModPlayer {
         if (this.ctx) return;
         this.ctx = new AudioContext();
         
-        // Do it
         this.analyser = this.ctx.createAnalyser();
         this.analyser.fftSize = 2048;
         this.analyser.smoothingTimeConstant = 0.6;
 
         try {
-            // Eat dick for free by creating a blob with the thing I put at the top
             const blob = new Blob([PROCESSOR_CODE], { type: 'application/javascript' });
             const url = URL.createObjectURL(blob);
             await this.ctx.audioWorklet.addModule(url);
@@ -184,7 +181,6 @@ export class ModPlayer {
                 outputChannelCount: [2] 
             });
             
-            // connect 
             this.workletNode.connect(this.analyser);
             this.analyser.connect(this.ctx.destination);
             
@@ -194,7 +190,6 @@ export class ModPlayer {
         }
     }
 
-    // exposE
     getScopeData() {
         if (!this.analyser) return null;
         const data = new Uint8Array(this.analyser.frequencyBinCount);
@@ -218,7 +213,8 @@ export class ModPlayer {
             instrument: 0,
             volume: 64,
             note: 0,
-            targetNote: 0,
+            period: 0, // Currriod
+            targetPeriod: 0, // Destiamento
             finetune: 0,
             relativeNote: 0,
             sampleData: null,
@@ -226,15 +222,12 @@ export class ModPlayer {
             loopLength: 0,
             effect: 0,
             effectParam: 0,
-            pitchOffset: 0,
             portaSpeed: 0,
             delayTick: 0,
             delayedNote: null,
-            lastParam: 0, 
-            lastPortaSpeed: 0,
             offsetMemory: 0,
-            s3mMem: {}, 
-            // XM specific
+            
+            // XM Enve\te
             volEnvTick: 0,
             panEnvTick: 0,
             fadeOut: 65536,
@@ -243,9 +236,11 @@ export class ModPlayer {
             vibPhase: 0,
             tremPhase: 0,
             keyOff: false,
+            
             effectMemory: {},
             volEffect: 0,
             volEffectParam: 0,
+            
             arp1: 0,
             arp2: 0,
             vibSpeed: 0,
@@ -290,7 +285,6 @@ export class ModPlayer {
     schedule() {
         if (!this.playing || this.paused) return;
         const now = performance.now();
-        // Look ahead
         while (this.nextTickTime < now + 30) {
             this.processTick();
             const tickMillis = 2500 / this.bpm;
@@ -322,20 +316,17 @@ export class ModPlayer {
             if (!n) continue;
             const state = this.channelState[i];
 
-            // nude delay
-            let isDelayed = false;
+            // Hanx)
             if ((this.module.type === 'S3M' && n.effect === 0x13 && (n.param >> 4) === 0x0D) ||
                 (this.module.type === 'XM' && n.effect === 0x0E && (n.param >> 4) === 0x0D)) {
                 state.delayTick = n.param & 0x0F;
                 state.delayedNote = { ...n, effect: 0 }; 
-                isDelayed = true;
+                continue;
             }
-
-            if (isDelayed) continue;
 
             this.triggerNote(i, n);
         }
-// Gay people don'tlive here
+
         if (this.breakRow !== -1 || this.jumpPos !== -1 || ++this.row >= (pattern.numRows || 64)) {
             const count = songOrder.length;
             this.position = (this.jumpPos !== -1) ? this.jumpPos : (this.position + 1) % count;
@@ -347,6 +338,9 @@ export class ModPlayer {
 
     triggerNote(ch, n) {
         const state = this.channelState[ch];
+        const isXM = (this.module.type === 'XM');
+        const isS3M = (this.module.type === 'S3M');
+        const isMOD = (this.module.type === 'MOD');
 
         state.effect = n.effect;
         state.effectParam = n.param !== undefined ? n.param : 0;
@@ -357,132 +351,215 @@ export class ModPlayer {
         if (newInst > 0) state.instrument = newInst;
 
         let hasNote = false;
-        let currentNote = n.note;
+        let noteKey = n.note;
 
-        if (this.module.type === 'MOD') {
+        // hbj
+        if (isMOD) {
             if (n.period > 0) {
-                // approximate conversion 
                 const semitones = Math.round(12 * Math.log2(856 / n.period));
                 state.note = 12 + semitones;
                 hasNote = true;
             }
         } else {
-            if (currentNote < 97 && currentNote !== 255) {
-                const isPorta = (this.module.type === 'S3M' ? state.effect === 0x07 : state.effect === 0x03);
-                if (isPorta && state.note > 0) {
-                    state.targetNote = currentNote;
-                } else {
-                    state.note = currentNote;
-                    state.pitchOffset = 0;
-                    hasNote = true;
-                }
-            } else if (currentNote === 97) { 
+            // S3M / M
+            if (noteKey > 0 && noteKey < 97) {
+                hasNote = true;
+            } else if (noteKey === 97) { // Key 
                 state.keyOff = true;
-            } else if (currentNote === 254) { 
-                state.volume = 0;
             }
         }
 
-        let trigger = true;
-        let position = 0;
-
-        if (state.effect === 0x09 || (this.module.type === 'S3M' && state.effect === 0x0F)) {
-            if (state.effectParam > 0) state.offsetMemory = state.effectParam;
-            position = state.offsetMemory * 256;
-            trigger = (newInst > 0 || hasNote); 
+        // ----
+        let inst = null;
+        if (newInst > 0 || (hasNote && state.instrument > 0)) {
+            if (isXM && this.module.instruments) inst = this.module.instruments[state.instrument - 1];
+            else if (this.module.samples) inst = this.module.samples[state.instrument - 1];
         }
 
-        if (hasNote || (newInst > 0 && n.note === 255)) {
-            const inst = (this.module.type === 'XM' && this.module.instruments) ? this.module.instruments[state.instrument - 1] : null;
-            const noteMapping = (this.module.type === 'XM' && n.note < 97) ? n.note : state.note;
-            const sampleIdx = inst?.sampleMap ? inst.sampleMap[Math.min(95, noteMapping)] : 0;
-            const s = inst ? inst.samples[sampleIdx] : (this.module.samples ? this.module.samples[state.instrument - 1] : null);
-
-            if (s) {
-                state.finetune = s.finetune || 0;
-                state.relativeNote = s.relativeNote || 0;
-                state.sampleData = s.data;
-                state.loopStart = s.loopStart;
-                state.loopLength = s.loopLength;
-                state.loopType = (this.module.type === 'XM') ? (s.type & 3) : (state.loopLength > 0 ? 1 : 0);
-                if (s.pan !== undefined) state.panning = (s.pan - 128) / 128;
-                else if (this.module.type === 'MOD') state.panning = (ch === 0 || ch === 3 || (ch % 4 === 0)) ? -0.8 : 0.8;
-                else state.panning = (ch % 2 === 0) ? -0.5 : 0.5;
-
-                const hasVolCommand = (n.volume !== undefined && n.volume !== 255);
-                if (newInst > 0 || (hasNote && !hasVolCommand)) {
-                    state.volume = s.volume;
-                }
-
-                if (state.sampleData) {
-                    if (hasNote || newInst > 0) {
-                        state.keyOff = false;
-                        state.volEnvTick = 0;
-                        state.panEnvTick = 0;
-                        state.fadeOut = 65536;
-                        state.autoVibPhase = 0;
-                        state.vibPhase = 0;
-                        state.tremPhase = 0;
-                    }
-
-                    if (hasNote) {
-                        this.updateWorkletChannel(ch, {
-                            sampleData: state.sampleData,
-                            loopStart: state.loopStart,
-                            loopLength: state.loopLength,
-                            loopType: state.loopType,
-                            active: true,
-                            trigger: trigger,
-                            position: position,
-                            pingPongDir: 1
-                        });
-                    }
-                }
+        let sample = null;
+        if (inst) {
+            if (isXM) {
+                const sampleIdx = inst.sampleMap ? inst.sampleMap[Math.min(95, (hasNote ? noteKey - 1 : state.note))] : 0;
+                sample = inst.samples[sampleIdx];
+            } else {
+                sample = inst; // S3M/Mects
             }
         }
 
-        if (this.module.type === 'XM' && n.volume !== undefined && n.volume !== 255) {
+        if (sample && (newInst > 0 || (hasNote && state.sampleData === null))) {
+            state.sampleData = sample.data;
+            state.loopStart = sample.loopStart;
+            state.loopLength = sample.loopLength;
+            state.loopType = isXM ? (sample.type & 3) : (sample.loopLength > 0 ? 1 : 0);
+            state.finetune = sample.finetune || 0;
+            state.relativeNote = sample.relativeNote || 0;
+            
+            // Defaulume
+            if (newInst > 0) state.volume = sample.volume;
+            
+            // Defau
+            if (sample.pan !== undefined) state.panning = (sample.pan - 128) / 128;
+            else if (isMOD) state.panning = (ch % 4 === 0 || ch === 3) ? -0.8 : 0.8;
+            else state.panning = (ch % 2 === 0) ? -0.5 : 0.5;
+        }
+
+        // nm 
+        if (isXM && n.volume !== undefined && n.volume !== 255) {
             const v = n.volume;
             if (v >= 0x10 && v <= 0x50) state.volume = v - 0x10;
-            else if (v >= 0x60 && v <= 0x6F) { state.volEffect = 0x0A; state.volEffectParam = (v & 0x0F); } 
-            else if (v >= 0x70 && v <= 0x7F) { state.volEffect = 0x0A; state.volEffectParam = (v & 0x0F) << 4; } 
-            else if (v >= 0x80 && v <= 0x8F) { state.volEffect = 0x0A; state.volEffectParam = (v & 0x0F); } 
-            else if (v >= 0x90 && v <= 0x9F) { state.volEffect = 0x0A; state.volEffectParam = (v & 0x0F) << 4; } 
+            else if (v >= 0x60 && v <= 0x6F) { state.volEffect = 0x0A; state.volEffectParam = (v & 0x0F); } // Vide Down
+            else if (v >= 0x70 && v <= 0x7F) { state.volEffect = 0x0A; state.volEffectParam = (v & 0x0F) << 4; } // ol Slide Up
+            else if (v >= 0x80 && v <= 0x8F) { state.volEffect = 0x0A; state.volEffectParam = (v & 0x0F); } // Fine wn
+            else if (v >= 0x90 && v <= 0x9F) { state.volEffect = 0x0A; state.volEffectParam = (v & 0x0F) << 4; } // ne Up
             else if (v >= 0xC0 && v <= 0xCF) state.panning = ((v & 0x0F) * 16 - 128) / 128; 
-            else if (v >= 0xD0 && v <= 0xDF) { state.volEffect = 0x19; state.volEffectParam = (v & 0x0F); } 
-            else if (v >= 0xE0 && v <= 0xEF) { state.volEffect = 0x19; state.volEffectParam = (v & 0x0F) << 4; } 
-            else if (v >= 0xF0 && v <= 0xFF) {
-                state.volEffect = 0x03;
-                const table = [0, 1, 4, 8, 16, 32, 64, 96, 128, 256];
-                state.volEffectParam = table[v & 0x0F] || 0;
-            } 
-        } else if (this.module.type !== 'XM' && n.volume !== 255 && n.volume !== undefined) {
-            state.volume = Math.min(64, n.volume);
+            else if (v >= 0xF0 && v <= 0xFF) { // Tone Porta
+                 state.volEffect = 0x03; 
+                 // Mapping voam is mesup, 
+                 // but stam is 0
+                 const table = [0, 1, 4, 8, 16, 32, 64, 96, 128, 256]; // Apation
+                 state.volEffectParam = table[v & 0x0F] || 0; 
+            }
+        } else if (!isXM && n.volume !== undefined && n.volume !== 255) {
+             state.volume = Math.min(64, n.volume);
+        }
+
+        // -Die
+        const isTonePorta = (state.effect === 0x03 || state.effect === 0x05 || state.volEffect === 0x03);
+
+        if (hasNote) {
+            state.note = noteKey;
+            const targetPeriod = this.getPeriod(state.note, state.finetune, state.relativeNote);
+            
+            if (isTonePorta) {
+                state.targetPeriod = targetPeriod;
+                if (state.period === 0) state.period = targetPeriod; // No prt
+            } else {
+                state.period = targetPeriod;
+                state.targetPeriod = 0;
+                
+                // Triet
+                state.keyOff = false;
+                state.volEnvTick = 0;
+                state.panEnvTick = 0;
+                state.fadeOut = 65536;
+                state.autoVibPhase = 0;
+                state.vibPhase = 0;
+                state.tremPhase = 0;
+
+                // Selet
+                let offset = 0;
+                if (state.effect === 0x09) offset = (state.effectParam || state.offsetMemory) * 256;
+                
+                if (state.sampleData) {
+                    this.updateWorkletChannel(ch, {
+                        sampleData: state.sampleData,
+                        loopStart: state.loopStart,
+                        loopLength: state.loopLength,
+                        loopType: state.loopType,
+                        active: true,
+                        trigger: true,
+                        position: offset,
+                        pingPongDir: 1
+                    });
+                }
+            }
         }
 
         state.vibOffset = 0;
         state.tremOffset = 0;
+
+        // Proceck 0
         this.handleEffect(ch, state.effect, state.effectParam, true);
         if (state.volEffect) this.handleEffect(ch, state.volEffect, state.volEffectParam, true);
 
+        // Calte
         const env = this.processEnvelopes(ch);
         const finalPan = Math.max(-1, Math.min(1, (state.panning || 0) + env.pan));
-
+        
         this.updateWorkletChannel(ch, {
             volume: this.calculateFinalVolume(ch, state.volume),
-            step: this.getStep(ch),
+            step: this.calculateFrequency(ch),
             panning: finalPan
         });
     }
 
-    calculateFinalVolume(ch, vol) {
-        const state = this.channelState[ch];
-        const gVol = this.globalVolume / 64;
-        const env = this.processEnvelopes(ch);
-        const finalVol = Math.max(0, Math.min(64, vol + (state.tremOffset || 0)));
-        return finalVol * gVol * env.vol;
+    processTickEffects() {
+        for (let i = 0; i < this.module.channels; i++) {
+            const state = this.channelState[i];
+
+            if (state.delayTick > 0 && --state.delayTick === 0) {
+                if (state.delayedNote) { this.triggerNote(i, state.delayedNote); state.delayedNote = null; }
+            }
+
+            state.vibOffset = 0;
+            state.tremOffset = 0;
+
+            if (state.effect !== 0) this.handleEffect(i, state.effect, state.effectParam, false);
+            if (state.volEffect !== 0) this.handleEffect(i, state.volEffect, state.volEffectParam, false);
+
+            this.advanceEnvelopes(i);
+            const env = this.processEnvelopes(i);
+            const finalPan = Math.max(-1, Math.min(1, (state.panning || 0) + env.pan));
+
+            this.updateWorkletChannel(i, {
+                volume: this.calculateFinalVolume(i, state.volume),
+                step: this.calculateFrequency(i),
+                panning: finalPan
+            });
+        }
     }
 
+    getPeriod(note, fine, relative) {
+        // XM Liiga
+        if (this.module.linearFreq) {
+             return 7680 - (note + relative - 1) * 64 - (fine / 2);
+        } else {
+             // Ami3M
+             const realNote = note + relative;
+             const periods = [1712, 1616, 1524, 1440, 1356, 1280, 1208, 1140, 1076, 1016, 960, 906];
+             const oct = Math.floor((realNote - 1) / 12);
+             const n = (realNote - 1) % 12;
+             let p = periods[n] || 0;
+             // Apply Oase octads
+             const shift = oct - 3; 
+             if (shift >= 0) p = p >> shift;
+             else p = p << (-shift);
+             return p;
+        }
+    }
+
+    calculateFrequency(ch) {
+        const state = this.channelState[ch];
+        const sampleRate = this.ctx?.sampleRate || 44100;
+        if (!state.period) return 0;
+
+        let p = state.period;
+        
+        // Apply Vibreg
+        let arpNote = 0;
+        if (state.arp1 > 0 || state.arp2 > 0) {
+            const ph = this.tick % 3;
+            if (ph === 1) arpNote = state.arp1;
+            else if (ph === 2) arpNote = state.arp2;
+        }
+
+        if (this.module.linearFreq) {
+             p = p - (arpNote * 64) - (state.vibOffset * 4); // Vib depaled
+             const freq = 8363 * Math.pow(2, (4608 - p) / 768);
+             return freq / sampleRate;
+        } else {
+             // Amiode
+             if (arpNote !== 0) {
+                 //riod table again
+                 p = p / Math.pow(2, arpNote / 12); 
+             }
+             p = p + state.vibOffset; // Amigectly
+             if (p < 1) p = 1;
+             return (this.AMIGA_CLOCK / (p * 2)) / sampleRate;
+        }
+    }
+
+    // --- Envelopes ---
     processEnvelopes(ch) {
         const state = this.channelState[ch];
         if (this.module.type !== 'XM') return { vol: 1.0, pan: 0.0 };
@@ -511,26 +588,42 @@ export class ModPlayer {
         if (this.module.type !== 'XM') return;
 
         const inst = this.module.instruments?.[state.instrument - 1];
-        if (!inst) return;
+        if (!inst) {
+             if (state.keyOff) state.fadeOut = Math.max(0, state.fadeOut - 1024); // Default fade if no inst
+             return;
+        }
 
-        if (inst.volPoints && inst.volPoints.length > 0 && (inst.volType & 1)) {
-            if (!((inst.volType & 2) && !state.keyOff && state.volEnvTick === inst.volPoints[inst.volSustain].x)) {
+        // Vollope
+        if ((inst.volType & 1) && inst.volPoints) { // On
+            let advance = true;
+            
+            // Sain
+            if ((inst.volType & 2) && !state.keyOff) {
+                if (state.volEnvTick === inst.volPoints[inst.volSustain]?.x) advance = false;
+            }
+
+            // Poop
+            if ((inst.volType & 4) && state.volEnvTick >= inst.volPoints[inst.volLoopEnd]?.x) {
+                state.volEnvTick = inst.volPoints[inst.volLoopStart]?.x || 0;
+            } else if (advance) {
                 state.volEnvTick++;
             }
-            if ((inst.volType & 4) && state.volEnvTick >= inst.volPoints[inst.volLoopEnd].x) {
-                state.volEnvTick = inst.volPoints[inst.volLoopStart].x;
-            }
         }
 
-        if (inst.panPoints && inst.panPoints.length > 0 && (inst.panType & 1)) {
-            if (!((inst.panType & 2) && !state.keyOff && state.panEnvTick === inst.panPoints[inst.panSustain].x)) {
+        // Paope
+        if ((inst.panType & 1) && inst.panPoints) { // On
+            let advance = true;
+            if ((inst.panType & 2) && !state.keyOff) {
+                if (state.panEnvTick === inst.panPoints[inst.panSustain]?.x) advance = false;
+            }
+            if ((inst.panType & 4) && state.panEnvTick >= inst.panPoints[inst.panLoopEnd]?.x) {
+                state.panEnvTick = inst.panPoints[inst.panLoopStart]?.x || 0;
+            } else if (advance) {
                 state.panEnvTick++;
             }
-            if ((inst.panType & 4) && state.panEnvTick >= inst.panPoints[inst.panLoopEnd].x) {
-                state.panEnvTick = inst.panPoints[inst.panLoopStart].x;
-            }
         }
 
+        // Faut
         if (state.keyOff) {
             state.fadeOut = Math.max(0, state.fadeOut - (inst.fadeout || 0));
         }
@@ -540,128 +633,21 @@ export class ModPlayer {
         if (!points || num === 0) return 64.0;
         let i = 0;
         for (i = 0; i < num - 1; i++) {
-            if (tick < points[i + 1].x) break;
+            if (tick <= points[i + 1].x) break;
         }
+        
+        // Clamd
         if (i >= num - 1) return points[num - 1].y;
-        const p1 = points[i], p2 = points[i + 1];
+        
+        const p1 = points[i];
+        const p2 = points[i + 1];
+        if (tick < p1.x) return p1.y;
+
         const dx = p2.x - p1.x;
         if (dx === 0) return p2.y;
-        return p1.y + (tick - p1.x) * (p2.y - p1.y) / dx;
-    }
-
-    getStep(ch) {
-        const state = this.channelState[ch];
-        const sampleRate = this.ctx?.sampleRate || 44100;
-        if (!state.sampleData) return 0;
-
-        let arpOffset = 0;
-        const isXM = (this.module.type === 'XM');
-
-        if (state.arp1 > 0 || state.arp2 > 0) {
-            const phase = this.tick % 3;
-            if (phase === 1) arpOffset = state.arp1;
-            else if (phase === 2) arpOffset = state.arp2;
-        }
-
-        let effectiveNote = state.note + state.pitchOffset + arpOffset + (state.vibOffset || 0);
-
-        if (isXM) {
-            effectiveNote += this.getVibratoOffset(ch);
-            const totalNote = effectiveNote + state.relativeNote;
-            let freq;
-            if (this.module.linearFreq) {
-                const period = 7680 - totalNote * 64 - (state.finetune / 2);
-                freq = 8363 * Math.pow(2, (4608 - period) / 768);
-            } else {
-                freq = 8363 * Math.pow(2, (totalNote - 48 + state.finetune / 128) / 12);
-            }
-            return Math.min(8.0, freq / sampleRate);
-        } else if (this.module.type === 'S3M') {
-            const s = this.getSample(state.instrument);
-            // s3m formuler
-            const freq = (s?.c2spd || 8363) * Math.pow(2, (effectiveNote - 48) / 12);
-            return freq / sampleRate;
-        } else {
-            const p = this.noteToAmigaPeriod(effectiveNote, state.finetune);
-            // amiger freuqnen
-            return (this.AMIGA_CLOCK / (p * 2)) / sampleRate;
-        }
-    }
-
-    getVibratoOffset(ch) {
-        const state = this.channelState[ch];
-        const inst = this.module.instruments?.[state.instrument - 1];
-        let offset = 0;
-
-        if (inst && inst.vibDepth > 0) {
-            const sweep = inst.vibSweep > 0 ? Math.min(1.0, state.volEnvTick / inst.vibSweep) : 1.0;
-            const phase = (state.autoVibPhase * Math.PI * 2) / 256;
-            offset += Math.sin(phase) * (inst.vibDepth / 64) * sweep;
-            state.autoVibPhase = (state.autoVibPhase + inst.vibRate) & 0xFF;
-        }
-
-        return offset;
-    }
-
-    noteToAmigaPeriod(note, fine) {
-        const periods = [1712, 1616, 1524, 1440, 1356, 1280, 1208, 1140, 1076, 1016, 960, 906];
-        const oct = Math.floor(note / 12);
-        const n = note % 12;
-        let p = periods[n];
         
-        // low octaves (negative shift) correctly
-        const shift = oct - 1;
-        if (shift >= 0) {
-            p = p >> shift;
-        } else {
-            p = p << (-shift);
-        }
-
-        if (fine !== 0) p *= Math.pow(2, -fine / (12 * 128));
-        return Math.max(1, p);
-    }
-
-    getSample(idx) {
-        if (!this.module || idx <= 0) return null;
-        if (this.module.type === 'XM' && this.module.instruments) {
-            const inst = this.module.instruments[idx - 1];
-            if (!inst || !inst.samples || inst.samples.length === 0) return null;
-            return inst.samples[0];
-        } else if (this.module.samples) {
-            return this.module.samples[idx - 1] || null;
-        }
-        return null;
-    }
-
-    processTickEffects() {
-        for (let i = 0; i < this.module.channels; i++) {
-            const state = this.channelState[i];
-
-            if (state.delayTick > 0 && --state.delayTick === 0) {
-                if (state.delayedNote) { this.triggerNote(i, state.delayedNote); state.delayedNote = null; }
-            }
-
-            state.vibOffset = 0;
-            state.tremOffset = 0;
-
-            if (state.effect !== 0) {
-                this.handleEffect(i, state.effect, state.effectParam, false);
-            }
-            if (state.volEffect !== 0) {
-                this.handleEffect(i, state.volEffect, state.volEffectParam, false);
-            }
-
-            this.advanceEnvelopes(i);
-
-            const env = this.processEnvelopes(i);
-            const finalPan = Math.max(-1, Math.min(1, (state.panning || 0) + env.pan));
-
-            this.updateWorkletChannel(i, {
-                volume: this.calculateFinalVolume(i, state.volume),
-                step: this.getStep(i),
-                panning: finalPan
-            });
-        }
+        const dy = p2.y - p1.y;
+        return p1.y + (tick - p1.x) * (dy / dx);
     }
 
     handleEffect(ch, eff, param, tick0) {
@@ -669,214 +655,106 @@ export class ModPlayer {
         const isXM = (this.module.type === 'XM');
         const isS3M = (this.module.type === 'S3M');
 
-        let p = param;
-
-        // efect memeroy
-        if (isXM) {
-            //  (0x00 means use previous non-zero value)
-            // 1=PortaUp, 2=PortaDown, 3=TonePorta, 4=Vib, 5=VolSlide+TonePorta, 6=VolSlide+Vib
-            // A=VolSlide, E=Ext(some), H=GlobSlide, P=PanSlide, R=Retrig, X=Extra
-            const memEffects = [0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0xA, 0x11, 0x19, 0x1B, 0x21];
-            if (memEffects.includes(eff)) {
-                if (param > 0) {
-                    state.effectMemory[eff] = param;
-                } else {
-                    p = state.effectMemory[eff] || 0;
-                }
-            }
-        } else {
-            // ric fallback
-            if (param > 0) {
-                state.effectMemory[eff] = param;
-            }
-            p = state.effectMemory[eff] || 0;
-        }
+        if (param > 0) state.effectMemory[eff] = param;
+        const p = state.effectMemory[eff] || 0;
 
         if (tick0) {
-            if (isS3M) {
-                switch (eff) {
-                    case 0x01: this.speed = p; break;
-                    case 0x14: this.bpm = p; break;
-                    case 0x16: this.globalVolume = Math.min(64, p); break; // S3M Global vol 0-64
-                    case 0x0D: state.volume = Math.min(64, p); break;
-                    case 0x02: this.jumpPos = p; break;
-                    case 0x03: this.breakRow = p; break;
-                    case 0x07: if (p > 0) state.portaSpeed = p; break;
-                    case 0x04: { 
-                        const dx = (p >> 4), dy = p & 0x0F;
-                        if (dx === 0x0F && dy > 0) state.volume = Math.max(0, state.volume - dy);
-                        else if (dy === 0x0F && dx > 0) state.volume = Math.min(64, state.volume + dx);
-                        break;
-                    }
-                }
-            } else { // XM / MOD
-                switch (eff) {
-                    case 0x00: 
-                        state.arp1 = (param >> 4);
-                        state.arp2 = (param & 0x0F);
-                        break;
-                    case 0x0C: state.volume = Math.min(64, param); break;
-                    case 0x0B: this.jumpPos = param; this.breakRow = 0; break;
-                    case 0x0D: this.breakRow = ((param >> 4) * 10) + (param & 0x0F); break;
-                    case 0x0F: if (param < 32) this.speed = param; else this.bpm = param; break;
-                    case 0x03: if (p > 0) state.portaSpeed = p; break;
-                    case 0x08: state.panning = (param - 128) / 128; break;
-                    case 0x0E: { 
-                        const extEff = (param >> 4);
-                        const extPrm = (param & 0x0F);
-                        if (extEff === 0x08) state.panning = (extPrm * 16 + 8 - 128) / 128;
-                        else if (extEff === 0x06) {
-                            if (extPrm === 0) state.loopRow = this.row;
-                            else if (state.loopCount === undefined || state.loopCount === 0) {
-                                state.loopCount = extPrm;
-                                this.breakRow = state.loopRow || 0;
-                            } else {
-                                if (--state.loopCount > 0) this.breakRow = state.loopRow || 0;
-                            }
-                        } else if (isXM && extEff === 0x01) { 
-                            state.pitchOffset += (extPrm / 64);
-                        } else if (isXM && extEff === 0x02) { 
-                            state.pitchOffset -= (extPrm / 64);
-                        } else if (isXM && extEff === 0x0A) { 
-                            state.volume = Math.min(64, state.volume + extPrm);
-                        } else if (isXM && extEff === 0x0B) { 
-                            state.volume = Math.max(0, state.volume - extPrm);
-                        }
-                        break;
-                    }
-                    case 0x10: this.globalVolume = Math.min(64, param); break;
-                    case 0x19: state.panSlide = (param >> 4) > 0 ? (param >> 4) : -(param & 0x0F); break;
-                }
+            // -cts 
+            switch(eff) {
+                case 0x01: // PortD/XM)
+                case 0x02: // PoM)
+                    if (isS3M) { /* S3M handow */ }
+                    else { if (param > 0) state.portaSpeed = param; }
+                    break;
+                case 0x03: // Toa
+                    if (param > 0) state.portaSpeed = param;
+                    break;
+                case 0x0C: // Sl
+                    state.volume = Math.min(64, param);
+                    break;
+                case 0x0F: // SePM
+                    if (param < 32) this.speed = param; else this.bpm = param;
+                    break;
+                // ... (Keep exisak) ...
+                case 0x0B: this.jumpPos = param; this.breakRow = 0; break;
+                case 0x0D: this.breakRow = ((param >> 4) * 10) + (param & 0x0F); break;
             }
         } else {
-            // Tick effects
-            if (isS3M) {
-                switch (eff) {
-                    case 0x04: {
-                        const dx = (p >> 4), dy = p & 0x0F;
-                        if (dx === 0x0F || dy === 0x0F) break;
-                        if (dx > 0 && dy === 0) state.volume = Math.min(64, state.volume + dx);
-                        else if (dy > 0 && dx === 0) state.volume = Math.max(0, state.volume - dy);
-                        break;
+            // --cts 
+            switch(eff) {
+                case 0x01: // Porta Up
+                    if (state.period > 0) {
+                        const slide = (p * 4); // 4x multipic? 
+                        // Actually in Linone.
+                        // In Amigaion.
+                        if (this.module.linearFreq) state.period -= slide; 
+                        else state.period -= p; // Amiiod
+                        if (state.period < 1) state.period = 1;
                     }
-                    case 0x05: state.pitchOffset -= (p / 64); break;
-                    case 0x06: state.pitchOffset += (p / 64); break;
-                    case 0x07:
-                        if (state.targetNote > 0 && state.portaSpeed > 0) {
-                            const diff = state.targetNote - state.note;
-                            const speed = state.portaSpeed / 32;
-                            if (Math.abs(diff) < speed) { state.note = state.targetNote; state.targetNote = 0; }
-                            else state.note += (diff > 0 ? speed : -speed);
+                    break;
+                case 0x02: // Porta Down
+                    if (state.period > 0) {
+                        const slide = (p * 4); 
+                        if (this.module.linearFreq) state.period += slide;
+                        else state.period += p;
+                    }
+                    break;
+                case 0x03: // Torta
+                case 0x05: // Tone Pide
+                    if (state.targetPeriod > 0 && state.period > 0) {
+                        const speed = state.portaSpeed * (this.module.linearFreq ? 4 : 1);
+                        if (state.period < state.targetPeriod) {
+                            state.period += speed;
+                            if (state.period > state.targetPeriod) state.period = state.targetPeriod;
+                        } else if (state.period > state.targetPeriod) {
+                            state.period -= speed;
+                            if (state.period < state.targetPeriod) state.period = state.targetPeriod;
                         }
-                        break;
-                    case 0x17: { // Wxy
-                        const x = (p >> 4), y = p & 0x0F;
-                        if (x > 0) this.globalVolume = Math.min(64, this.globalVolume + x);
-                        else if (y > 0) this.globalVolume = Math.max(0, this.globalVolume - y);
-                        break;
                     }
-                }
-            } else {
-                switch (eff) {
-                    case 0x00: break; 
-                    case 0x0A: { 
-                        const x = (p >> 4), y = p & 0x0F;
-                        if (x > 0) state.volume = Math.min(64, state.volume + x);
-                        else if (y > 0) state.volume = Math.max(0, state.volume - y);
-                        break;
-                    }
-                    case 0x01: state.pitchOffset += (p / 64); break;
-                    case 0x02: state.pitchOffset -= (p / 64); break;
-                    case 0x03: 
-                        if (state.targetNote > 0 && state.portaSpeed > 0) {
-                            const diff = state.targetNote - state.note;
-                            const speed = state.portaSpeed / 64;
-                            if (Math.abs(diff) < speed) { state.note = state.targetNote; state.targetNote = 0; }
-                            else state.note += (diff > 0 ? speed : -speed);
-                        }
-                        break;
-                    case 0x04: 
-                    case 0x06: { 
-                        if (eff === 0x06) {
-                            const x = (p >> 4), y = p & 0x0F;
-                            if (x > 0) state.volume = Math.min(64, state.volume + x);
-                            else if (y > 0) state.volume = Math.max(0, state.volume - y);
-                        }
-                        const vP = state.effectMemory[0x04] || 0;
-                        const x = (vP >> 4), y = vP & 0x0F;
-                        if (x > 0) state.vibSpeed = x;
-                        if (y > 0) state.vibDepth = y;
-                        const phase = (state.vibPhase * Math.PI * 2) / 64;
-                        state.vibOffset = Math.sin(phase) * (state.vibDepth / 8);
-                        state.vibPhase = (state.vibPhase + state.vibSpeed) & 0x3F;
-                        break;
-                    }
-                    case 0x05: { 
-                        const x = (p >> 4), y = p & 0x0F;
-                        if (x > 0) state.volume = Math.min(64, state.volume + x);
-                        else if (y > 0) state.volume = Math.max(0, state.volume - y);
+                    if (eff === 0x05) this.doVolSlide(ch, p); // de
+                    break;
+                case 0x0A: // Vo
+                    this.doVolSlide(ch, p);
+                    break;
+                case 0x04: // Vibr
+                case 0x06: // dick
+                    {
+                        const d = (p & 0x0F) || state.vibDepth;
+                        const s = (p >> 4)   || state.vibSpeed;
+                        state.vibDepth = d; state.vibSpeed = s;
                         
-                        if (state.targetNote > 0 && state.portaSpeed > 0) {
-                            const diff = state.targetNote - state.note;
-                            const speed = state.portaSpeed / 64;
-                            if (Math.abs(diff) < speed) { state.note = state.targetNote; state.targetNote = 0; }
-                            else state.note += (diff > 0 ? speed : -speed);
-                        }
-                        break;
+                        const phase = (state.vibPhase * Math.PI * 2) / 64;
+                        
+                        state.vibOffset = Math.sin(phase) * d * 2; 
+                        state.vibPhase = (state.vibPhase + s) & 0x3F;
+                        
+                        if (eff === 0x06) this.doVolSlide(ch, 0); 
                     }
-                    case 0x07: { 
-                        const x = (p >> 4), y = p & 0x0F;
-                        if (x > 0) state.tremSpeed = x;
-                        if (y > 0) state.tremDepth = y;
-                        const phase = (state.tremPhase * Math.PI * 2) / 64;
-                        state.tremOffset = Math.sin(phase) * (state.tremDepth / 4);
-                        state.tremPhase = (state.tremPhase + state.tremSpeed) & 0x3F;
-                        break;
-                    }
-                    case 0x11: { 
-                        const x = (p >> 4), y = p & 0x0F;
-                        if (x > 0) this.globalVolume = Math.min(64, this.globalVolume + x);
-                        else if (y > 0) this.globalVolume = Math.max(0, this.globalVolume - y);
-                        break;
-                    }
-                    case 0x19: { 
-                        const x = (p >> 4), y = p & 0x0F;
-                        if (x > 0) state.panning = Math.min(1, state.panning + x / 128);
-                        else if (y > 0) state.panning = Math.max(-1, state.panning - y / 128);
-                        break;
-                    }
-                    case 0x1B: { 
-                        const x = (p >> 4), y = p & 0x0F;
-                        if (y > 0 && (this.tick % y) === 0) {
-                            if (x === 1) state.volume = Math.max(0, state.volume - 1);
-                            else if (x === 2) state.volume = Math.max(0, state.volume - 2);
-                            else if (x === 3) state.volume = Math.max(0, state.volume - 4);
-                            else if (x === 4) state.volume = Math.max(0, state.volume - 8);
-                            else if (x === 5) state.volume = Math.max(0, state.volume - 16);
-                            else if (x === 6) state.volume = Math.floor(state.volume * 2 / 3);
-                            else if (x === 7) state.volume = Math.floor(state.volume / 2);
-                            else if (x === 9) state.volume = Math.min(64, state.volume + 1);
-                            else if (x === 0xA) state.volume = Math.min(64, state.volume + 2);
-                            else if (x === 0xB) state.volume = Math.min(64, state.volume + 4);
-                            else if (x === 0xC) state.volume = Math.min(64, state.volume + 8);
-                            else if (x === 0xD) state.volume = Math.min(64, state.volume + 16);
-                            else if (x === 0xE) state.volume = Math.floor(state.volume * 3 / 2);
-                            else if (x === 0xF) state.volume = Math.floor(state.volume * 2);
-                            this.updateWorkletChannel(ch, { trigger: true, position: 0 });
-                        }
-                        break;
-                    }
-                    case 0x21: { 
-                        const x = (p >> 4), y = (p & 0x0F);
-                        if (x === 1) state.pitchOffset += (y / 256);
-                        else if (x === 2) state.pitchOffset -= (y / 256);
-                        break;
-                    }
-                }
+                    break;
             }
         }
     }
 
+    doVolSlide(ch, p) {
+        const state = this.channelState[ch];
+        
+        let up = (p >> 4);
+        let down = (p & 0x0F);
+        
+        
+        
+        if (up > 0) state.volume = Math.min(64, state.volume + up);
+        else if (down > 0) state.volume = Math.max(0, state.volume - down);
+    }
+
+    calculateFinalVolume(ch, vol) {
+        const state = this.channelState[ch];
+        const gVol = this.globalVolume / 64;
+        const env = this.processEnvelopes(ch);
+        const finalVol = Math.max(0, Math.min(64, vol));
+        return finalVol * gVol * env.vol;
+    }
+    
     updateWorkletChannel(index, data) {
         this.workletNode?.port.postMessage({ type: 'updateChannel', data: { index, ...data } });
     }
